@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Visualisasi Risiko Produk Cincin Sumur</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/scrollama/3.0.4/scrollama.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f7f7f7;
+      color: #333;
+    }
+    
+    h1, h2, h3 {
+      color: #2c3e50;
+      text-align: center;
+    }
+    
+    h1 {
+      margin-bottom: 30px;
+      font-size: 32px;
+      border-bottom: 2px solid #3498db;
+      padding-bottom: 10px;
+    }
+    
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .section {
+      min-height: 80vh;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 5px;
+      opacity: 0.3;
+      transition: opacity 0.5s;
+      border: 1px solid #e0e0e0;
+    }
+    
+    .section.active {
+      opacity: 1;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    
+    th {
+      background-color: #3498db;
+      color: white;
+    }
+    
+    tr:nth-child(even) {
+      background-color: #f2f2f2;
+    }
+    
+    tr:hover {
+      background-color: #e9f5ff;
+    }
+    
+    .chart-container {
+      width: 100%;
+      height: 400px;
+      margin: 20px 0;
+    }
+    
+    .bar {
+      fill: steelblue;
+      transition: fill 0.3s;
+    }
+    
+    .bar:hover {
+      fill: #ff7f0e;
+    }
+    
+    .tooltip {
+      position: absolute;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      pointer-events: none;
+      font-size: 14px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      z-index: 10;
+      display: none;
+    }
+    
+    .chart-title {
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      color: #2c3e50;
+    }
+    
+    .axis-label {
+      font-size: 12px;
+      fill: #555;
+    }
+    
+    .legend {
+      font-size: 12px;
+    }
+    
+    .risk-high {
+      background-color: #ff7675;
+    }
+    
+    .risk-medium {
+      background-color: #fdcb6e;
+    }
+    
+    .risk-low {
+      background-color: #55efc4;
+    }
+    
+    .section-description {
+      font-size: 16px;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    
+    .score-cell {
+      font-weight: bold;
+    }
+    
+    /* Score color coding */
+    .score-extreme {
+      background-color: #e74c3c;
+      color: white;
+    }
+    
+    .score-high {
+      background-color: #ff7675;
+      color: white;
+    }
+    
+    .score-medium {
+      background-color: #fdcb6e;
+    }
+    
+    .score-low {
+      background-color: #55efc4;
+    }
+    
+    /* Label styling */
+    .text-label {
+      font-size: 12px;
+      text-anchor: middle;
+    }
+    
+    .category-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin: 15px 0;
+      color: #2c3e50;
+      border-left: 5px solid #3498db;
+      padding-left: 10px;
+    }
+    
+    /* Color scale for categories */
+    .cat-bahan-baku { fill: #e74c3c; }
+    .cat-proses-produksi { fill: #3498db; }
+    .cat-ketidaksesuaian { fill: #2ecc71; }
+    
+    .cat-legend-bahan-baku { background-color: #e74c3c; }
+    .cat-legend-proses-produksi { background-color: #3498db; }
+    .cat-legend-ketidaksesuaian { background-color: #2ecc71; }
+    
+    .category-legend {
+      display: flex;
+      justify-content: center;
+      margin: 20px 0;
+      flex-wrap: wrap;
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin: 0 15px;
+    }
+    
+    .legend-color {
+      width: 20px;
+      height: 20px;
+      margin-right: 8px;
+      border-radius: 3px;
+    }
+    
+    .code-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-weight: bold;
+      margin-right: 5px;
+      color: white;
+      background-color: #34495e;
+    }
+
+    .matrix-cell {
+      stroke: white;
+      stroke-width: 1px;
+      transition: fill-opacity 0.3s;
+    }
+    
+    .matrix-cell:hover {
+      fill-opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Visualisasi Risiko Produk Cincin Sumur</h1>
+    
+    <div id="scrolly">
+      <!-- Section 1: Tabel Data -->
+      <div class="section" id="section1">
+        <h2>Tabel Data Risiko</h2>
+        <p class="section-description">
+          Berikut adalah tabel yang menampilkan seluruh data risiko produk Cincin Sumur. 
+          Tabel ini menunjukkan kode risiko, deskripsi risiko, nilai kemungkinan (likelihood), 
+          dampak (impact), skor risiko, dan kategori risiko.
+        </p>
+        <div id="table-container"></div>
+      </div>
+      
+      <!-- Section 2: Risiko Berdasarkan Kategori -->
+      <div class="section" id="section2">
+        <h2>Risiko Berdasarkan Kategori</h2>
+        <p class="section-description">
+          Visualisasi risiko yang dikelompokkan berdasarkan kategori. 
+          Setiap kategori memiliki beberapa kode risiko yang terkait.
+        </p>
+        <div id="category-container"></div>
+      </div>
+      
+      <!-- Section 3: Rata-rata Likelihood per Kategori -->
+      <div class="section" id="section3">
+        <h2>Rata-rata Kemungkinan (Likelihood) per Kategori</h2>
+        <p class="section-description">
+          Grafik yang menampilkan nilai rata-rata kemungkinan terjadinya risiko untuk setiap kategori.
+          Nilai ini menunjukkan seberapa sering risiko dalam kategori tersebut mungkin terjadi.
+        </p>
+        <div class="chart-container" id="likelihood-chart"></div>
+      </div>
+      
+      <!-- Section 4: Rata-rata Impact per Kategori -->
+      <div class="section" id="section4">
+        <h2>Rata-rata Dampak (Impact) per Kategori</h2>
+        <p class="section-description">
+          Grafik yang menampilkan nilai rata-rata dampak risiko untuk setiap kategori.
+          Nilai ini menunjukkan tingkat keparahan risiko jika terjadi.
+        </p>
+        <div class="chart-container" id="impact-chart"></div>
+      </div>
+      
+      <!-- Section 5: Distribusi Skor Risiko -->
+      <div class="section" id="section5">
+        <h2>Distribusi Skor Risiko</h2>
+        <p class="section-description">
+          Visualisasi distribusi skor risiko untuk semua risiko yang diidentifikasi.
+          Skor risiko dihitung dari perkalian nilai kemungkinan dan dampak.
+        </p>
+        <div class="chart-container" id="score-chart"></div>
+      </div>
+      
+      <!-- Section 6: Matriks Risiko -->
+      <div class="section" id="section6">
+        <h2>Matriks Risiko (Likelihood x Impact)</h2>
+        <p class="section-description">
+          Matriks risiko menunjukkan posisi setiap risiko berdasarkan nilai kemungkinan dan dampaknya.
+          Matriks ini membantu mengidentifikasi risiko mana yang memerlukan perhatian lebih.
+        </p>
+        <div class="chart-container" id="matrix-chart"></div>
+      </div>
+    </div>
+    
+    <div class="tooltip" id="tooltip"></div>
+  </div>
+
+  <script>
+    // Data risiko
+    const riskData = [
+      { code: "A1", risk: "Ketidakterediaan bahan baku", likelihood: 4, impact: 3, score: 12, label: "Risiko Bahan Baku" },
+      { code: "A2", risk: "Kualitas bahan baku tidak sesuai", likelihood: 1, impact: 2, score: 2, label: "Risiko Bahan Baku" },
+      { code: "B1", risk: "Kerusakan cetakan cincin sumur", likelihood: 1, impact: 1, score: 1, label: "Risiko Proses Produksi" },
+      { code: "B2", risk: "Kesalahan pencetakan/pengeringan", likelihood: 2, impact: 2, score: 4, label: "Risiko Proses Produksi" },
+      { code: "B3", risk: "Terhambat produksi (hujan)", likelihood: 2, impact: 3, score: 6, label: "Risiko Proses Produksi" },
+      { code: "B4", risk: "Pencetakan tidak standar", likelihood: 1, impact: 2, score: 2, label: "Risiko Ketidaksesuaian dan Sanitasi" },
+      { code: "B5", risk: "Cincin retak saat pengeringan", likelihood: 2, impact: 3, score: 6, label: "Risiko Proses Produksi" },
+      { code: "B6", risk: "Pengeringan terlalu lama", likelihood: 2, impact: 3, score: 6, label: "Risiko Proses Produksi" },
+      { code: "B7", risk: "Kerusakan saat dipindahkan", likelihood: 1, impact: 2, score: 2, label: "Risiko Proses Produksi" },
+      { code: "C1", risk: "Area kerja tidak bersih", likelihood: 2, impact: 2, score: 4, label: "Risiko Ketidaksesuaian dan Sanitasi" },
+      { code: "C2", risk: "Kualitas tidak memenuhi permintaan", likelihood: 3, impact: 2, score: 6, label: "Risiko Ketidaksesuaian dan Sanitasi" },
+      { code: "C3", risk: "Penyimpanan tidak memadai", likelihood: 3, impact: 2, score: 6, label: "Risiko Ketidaksesuaian dan Sanitasi" },
+      { code: "D1", risk: "Peralatan menyulitkan produksi", likelihood: 1, impact: 2, score: 2, label: "Risiko Proses Produksi" },
+      { code: "D2", risk: "Pelayanan membatalkan pesanan", likelihood: 1, impact: 1, score: 1, label: "Risiko Ketidaksesuaian dan Sanitasi" },
+      { code: "D3", risk: "Keterlambatan pengiriman", likelihood: 2, impact: 2, score: 4, label: "Risiko Ketidaksesuaian dan Sanitasi" }
+    ];
+
+    // Fungsi untuk menentukan kelas skor risiko
+    function getScoreClass(score) {
+      if (score >= 10) return "score-extreme";
+      if (score >= 6) return "score-high";
+      if (score >= 3) return "score-medium";
+      return "score-low";
+    }
+
+    // Fungsi untuk menentukan nama level risiko
+    function getScoreLevel(score) {
+      if (score >= 10) return "Ekstrem";
+      if (score >= 6) return "Tinggi";
+      if (score >= 3) return "Sedang";
+      return "Rendah";
+    }
+
+    // 1. Membuat tabel data
+    function createTable() {
+      const table = d3.select("#table-container")
+        .append("table")
+        .attr("id", "risk-table");
+      
+      // Header tabel
+      table.append("thead")
+        .append("tr")
+        .selectAll("th")
+        .data(["Kode", "Risiko", "Kemungkinan", "Dampak", "Skor", "Level", "Kategori"])
+        .enter()
+        .append("th")
+        .text(d => d);
+      
+      // Baris data
+      const rows = table.append("tbody")
+        .selectAll("tr")
+        .data(riskData)
+        .enter()
+        .append("tr");
+      
+      // Kolom kode
+      rows.append("td")
+        .html(d => `<span class="code-badge">${d.code}</span>`);
+      
+      // Kolom risiko
+      rows.append("td")
+        .text(d => d.risk);
+      
+      // Kolom kemungkinan
+      rows.append("td")
+        .text(d => d.likelihood);
+      
+      // Kolom dampak
+      rows.append("td")
+        .text(d => d.impact);
+      
+      // Kolom skor
+      rows.append("td")
+        .attr("class", d => `score-cell ${getScoreClass(d.score)}`)
+        .text(d => d.score);
+      
+      // Kolom level risiko
+      rows.append("td")
+        .attr("class", d => getScoreClass(d.score))
+        .text(d => getScoreLevel(d.score));
+      
+      // Kolom kategori
+      rows.append("td")
+        .text(d => d.label);
+    }
+
+    // 2. Pengelompokan berdasarkan kategori
+    function createCategoryGrouping() {
+      const container = d3.select("#category-container");
+      
+      // Mengelompokkan data berdasarkan label
+      const categoryGroups = d3.group(riskData, d => d.label);
+      
+      // Legend for categories
+      const legend = container.append("div")
+        .attr("class", "category-legend");
+      
+      const categories = [
+        { name: "Risiko Bahan Baku", class: "cat-legend-bahan-baku" },
+        { name: "Risiko Proses Produksi", class: "cat-legend-proses-produksi" },
+        { name: "Risiko Ketidaksesuaian dan Sanitasi", class: "cat-legend-ketidaksesuaian" }
+      ];
+      
+      legend.selectAll(".legend-item")
+        .data(categories)
+        .enter()
+        .append("div")
+        .attr("class", "legend-item")
+        .html(d => `
+          <div class="legend-color ${d.class}"></div>
+          <div>${d.name}</div>
+        `);
+      
+      // Membuat tabel untuk setiap kategori
+      categoryGroups.forEach((risks, category) => {
+        container.append("div")
+          .attr("class", "category-title")
+          .text(category);
+        
+        const table = container.append("table");
+        
+        // Header tabel
+        table.append("thead")
+          .append("tr")
+          .selectAll("th")
+          .data(["Kode", "Risiko", "Kemungkinan", "Dampak", "Skor", "Level"])
+          .enter()
+          .append("th")
+          .text(d => d);
+        
+        // Baris data
+        const rows = table.append("tbody")
+          .selectAll("tr")
+          .data(risks)
+          .enter()
+          .append("tr");
+        
+        // Kolom kode
+        rows.append("td")
+          .html(d => `<span class="code-badge">${d.code}</span>`);
+        
+        // Kolom risiko
+        rows.append("td")
+          .text(d => d.risk);
+        
+        // Kolom kemungkinan
+        rows.append("td")
+          .text(d => d.likelihood);
+        
+        // Kolom dampak
+        rows.append("td")
+          .text(d => d.impact);
+        
+        // Kolom skor
+        rows.append("td")
+          .attr("class", d => `score-cell ${getScoreClass(d.score)}`)
+          .text(d => d.score);
+        
+        // Kolom level risiko
+        rows.append("td")
+          .attr("class", d => getScoreClass(d.score))
+          .text(d => getScoreLevel(d.score));
+      });
+      
+      // Menghitung dan menampilkan rata-rata per kategori
+      container.append("h3")
+        .text("Ringkasan Rata-rata per Kategori");
+      
+      const summaryTable = container.append("table");
+      
+      // Header tabel ringkasan
+      summaryTable.append("thead")
+        .append("tr")
+        .selectAll("th")
+        .data(["Kategori", "Jumlah Risiko", "Rata-rata Kemungkinan", "Rata-rata Dampak", "Rata-rata Skor"])
+        .enter()
+        .append("th")
+        .text(d => d);
+      
+      // Menghitung ringkasan untuk setiap kategori
+      const summaryData = Array.from(categoryGroups, ([category, risks]) => {
+        const avgLikelihood = d3.mean(risks, r => r.likelihood).toFixed(2);
+        const avgImpact = d3.mean(risks, r => r.impact).toFixed(2);
+        const avgScore = d3.mean(risks, r => r.score).toFixed(2);
+        
+        return {
+          category,
+          count: risks.length,
+          avgLikelihood,
+          avgImpact,
+          avgScore
+        };
+      });
+      
+      // Baris data ringkasan
+      const summaryRows = summaryTable.append("tbody")
+        .selectAll("tr")
+        .data(summaryData)
+        .enter()
+        .append("tr");
+      
+      summaryRows.append("td").text(d => d.category);
+      summaryRows.append("td").text(d => d.count);
+      summaryRows.append("td").text(d => d.avgLikelihood);
+      summaryRows.append("td").text(d => d.avgImpact);
+      summaryRows.append("td").text(d => d.avgScore);
+    }
+
+    // 3. Membuat grafik rata-rata likelihood per kategori
+    function createLikelihoodChart() {
+      const margin = {top: 50, right: 30, bottom: 70, left: 60};
+      const width = document.getElementById("likelihood-chart").clientWidth - margin.left - margin.right;
+      const height = 300;
+      
+      // Mengelompokkan data dan menghitung rata-rata
+      const categoryGroups = d3.group(riskData, d => d.label);
+      const avgLikelihoodData = Array.from(categoryGroups, ([category, risks]) => {
+        return {
+          category,
+          avgLikelihood: d3.mean(risks, r => r.likelihood)
+        };
+      });
+      
+      // Membuat SVG
+      const svg = d3.select("#likelihood-chart")
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+      
+      // Skala X
+      const x = d3.scaleBand()
+        .domain(avgLikelihoodData.map(d => d.category))
+        .range([0, width])
+        .padding(0.3);
+      
+      // Skala Y
+      const y = d3.scaleLinear()
+        .domain([0, 5]) // Skala 1-5 untuk likelihood
+        .range([height, 0]);
+      
+      // Fungsi warna berdasarkan kategori
+      function getCategoryColor(category) {
+        if (category.includes("Bahan Baku")) return "#e74c3c";
+        if (category.includes("Proses Produksi")) return "#3498db";
+        return "#2ecc71";
+      }
+      
+      // Bars
+      svg.selectAll(".bar")
+        .data(avgLikelihoodData)
+        .enter()
+        .append("rect")
+        .attr("class", "bar")
+        .attr("x", d => x(d.category))
+        .attr("width", x.bandwidth())
+        .attr("y", d => y(d.avgLikelihood))
+        .attr("height", d => height - y(d.avgLikelihood))
+        .attr("fill", d => getCategoryColor(d.category))
+        .on("mouseover", function(event, d) {
+          d3.select(this).attr("fill", "#ff7f0e");
+          d3.select("#tooltip")
+            .style("display", "block")
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 25) + "px")
+            .html(`<strong>${d.category}</strong><br>Rata-rata Kemungkinan: ${d.avgLikelihood.toFixed(2)}`);
+        })
+        .on("mouseout", function(event, d) {
+          d3.select(this).attr("fill", getCategoryColor(d.category));
+          d3.select("#tooltip").style("display", "none");
+        });
+      
+      // Value labels
+      svg.selectAll(".text-label")
+        .data(avgLikelihoodData)
+        .enter()
+        .append("text")
+        .attr("class", "text-label")
+        .attr("x", d => x(d.category) + x.bandwidth()/2)
+        .attr("y", d => y(d.avgLikelihood) - 5)
+        .text(d => d.avgLikelihood.toFixed(2));
+      
+      // X axis
+      svg.append("g")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(x))
+        .selectAll("text")
+        .attr("transform", "translate(-10,0)rotate(-25)")
+        .style("text-anchor", "end");
+      
+      // Y axis
+      svg.append("g")
+        .call(d3.axisLeft(y));
+      
+      // Title
+      svg.append("text")
+        .attr("class", "chart-title")
+        .attr("x", width / 2)
+        .attr("y", -20)
+        .attr("text-anchor", "middle")
+        .text("Rata-rata Kemungkinan (Likelihood) per Kategori");
+      
+      // Y axis label
+      svg.append("text")
+        .attr("class", "axis-label")
+        .attr("transform", "rotate(-90)")
+        .attr("y", -40)
+        .attr("x", -height / 2)
+        .attr("text-anchor", "middle")
+        .text("Rata-rata Kemungkinan");
+    }
+
+    // 4. Membuat grafik rata-rata impact per kategori
+    function createImpactChart() {
+      const margin = {top: 50, right: 30, bottom: 70, left: 60};
+      const width = document.getElementById("impact-chart").clientWidth - margin.left - margin.right;
+      const height = 300;
+      
+      // Mengelompokkan data dan menghitung rata-rata
+      const categoryGroups = d3.group(riskData, d => d.label);
+      const avgImpactData = Array.from(categoryGroups, ([category, risks]) => {
+        return {
+          category,
+          avgImpact: d3.mean(risks, r => r.impact)
+        };
+      });
+      
+      // Membuat SVG
+      const svg = d3.select("#impact-chart")
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+      
+      // Skala X
+      const x = d3.scaleBand()
+        .domain(avgImpactData.map(d => d.category))
+        .range([0, width])
+        .padding(0.3);
+      
+      // Skala Y
+      const y = d3.scaleLinear()
+        .domain([0, 5]) // Skala 1-5 untuk impact
+        .range([height, 0]);
+      
+      // Fungsi warna berdasarkan kategori
+      function getCategoryColor(category) {
+        if (category.includes("Bahan Baku")) return "#e74c3c";
+        if (category.includes("Proses Produksi")) return "#3498db";
+        return "#2ecc71";
+      }
+      
+      // Bars
+      svg.selectAll(".bar")
+        .data(avgImpactData)
+        .enter()
+        .append("rect")
+        .attr("class", "bar")
+        .attr("x", d => x(d.category))
+        .attr("width", x.bandwidth())
+        .attr("y", d => y(d.avgImpact))
+        .attr("height", d => height - y(d.avgImpact))
+        .attr("fill", d => getCategoryColor(d.category))
+        .on("mouseover", function(event, d) {
+          d3.select(this).attr("fill", "#ff7f0e");
+          d3.select("#tooltip")
+            .style("display", "block")
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 25) + "px")
+            .html(`<strong>${d.category}</strong><br>Rata-rata Dampak: ${d.avgImpact.toFixed(2)}`);
+        })
+        .on("mouseout", function(event, d) {
+          d3.select(this).attr("fill", getCategoryColor(d.category));
+          d3.select("#tooltip").style("display", "none");
+        });
+      
+      // Value labels
+      svg.selectAll(".text-label")
+        .data(avgImpactData)
+        .enter()
+        .append("text")
+        .attr("class", "text-label")
+        .attr("x", d => x(d.category) + x.bandwidth()/2)
+        .attr("y", d => y(d.avgImpact) - 5)
+        .text(d => d.avgImpact.toFixed(2));
+      
+      // X axis
+      svg.append("g")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(x))
+        .selectAll("text")
+        .attr("transform", "translate(-10,0)rotate(-25)")
+        .style("text-anchor", "end");
+      
+      // Y axis
+      svg.append("g")
+        .call(d3.axisLeft(y));
+      
+      // Title
+      svg.append("text")
+        .attr("class", "chart-title")
+        .attr("x", width / 2)
+        .attr("y", -20)
+        .attr("text-anchor", "middle")
+        .text("Rata-rata Dampak (Impact) per Kategori");
+      
+      // Y axis label
+      svg.append("text")
+        .attr("class", "axis-label")
+        .attr("transform", "rotate(-90)")
+        .attr("y", -40)
+        .attr("x", -height / 2)
+        .attr("text-anchor", "middle")
+        .text("Rata-rata Dampak");
+    }
+
+    // 5. Membuat visualisasi skor risiko
+    function createScoreChart() {
+      const margin = {top: 50, right: 30, bottom: 110, left: 60};
+      const width = document.getElementById("score-chart").clientWidth - margin.left - margin.right;
+      const height = 300;
+      
+      // Sort data by score
+      const sortedData = [...riskData].sort((a, b) => b.score - a.score);
+      
+      // Membuat SVG
+      const svg = d3.select("#score-chart")
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+      
+      // Skala X
+      const x = d3.scaleBand()
+        .domain(sortedData.map(d => d.code))
+        .range([0, width])
+        .padding(0.2);
+      
+      // Skala Y
+      const y = d3.scaleLinear()
+        .domain([0, 15]) // Max score
+        .range([height, 0]);
+      
+      // Fungsi warna berdasarkan kategori
+      function getCategoryColor(category) {
+        if (category.includes("Bahan Baku")) return "#e74c3c";
+        if (category.includes("Proses Produksi")) return "#3498db";
+        return "#2ecc71";
+      }
+      
+      // Bars
+      svg.selectAll(".bar")
+        .data(sortedData)
+        .enter()
+        .append("rect")
+        .attr("class", "bar")
+        .attr("x", d => x(d.code))
+        .attr("width", x.bandwidth())
+        .attr("y", d => y(d.score))
+        .attr("height", d => height - y(d.score))
+        .attr("fill", d => getCategoryColor(d.label))
+        .on("mouseover", function(event, d) {
+          d3.select(this).attr("fill", "#ff7f0e");
+          d3.select("#tooltip")
+            .style("display", "block")
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 25) + "px")
+            .html(`<strong>${d.code} - ${d.risk}</strong><br>Skor: ${d.score}<br>Kategori: ${d.label}`);
+        })
+        .on("mouseout", function(event, d) {
+          d3.select(this).attr("fill", getCategoryColor(d.label));
+          d3.select("#tooltip").style("display", "none");
+        });
+      
+      // Value labels
+      svg.selectAll(".text-label")
+        .data(sortedData)
+        .enter()
+        .append("text")
+        .attr("class", "text-label")
+        .attr("x", d => x(d.code) + x.bandwidth()/2)
+        .attr("y", d => y(d.score) - 5)
+        .text(d => d.score);
+      
+      // X axis
+      svg.append("g")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(x))
+        .selectAll("text")
+        .attr("transform", "translate(-10,0)rotate(-45)")
+        .style("text-anchor", "end");
+      
+      // Y axis
+      svg.append("g")
+        .call(d3.axisLeft(y));
+      
+      // Title
+      svg.append("text")
+        .attr("class", "chart-title")
+        .attr("x", width / 2)
+        .attr("y", -20)
+        .attr("text-anchor", "middle")
+        .text("Distribusi Skor Risiko");
+      
+      // Y axis label
+      svg.append("text")
+        .attr("class", "axis-label")
+        .attr("transform", "rotate(-90)")
+        .attr("y", -40)
+        .attr("x", -height / 2)
+        .attr("text-anchor", "middle")
+        .text("Skor Risiko");
+      
+      // Legend
+      const legend = svg.append("g")
+        .attr("class", "legend")
+        .attr("transform", `translate(${width/2 - 150}, ${height + 50})`);
+      
+      const legendItems = [
+        { name: "Risiko Bahan Baku", color: "#e74c3c" },
+        { name: "Risiko Proses Produksi", color: "#3498db" },
+        { name: "Risiko Ketidaksesuaian dan Sanitasi", color: "#2ecc71" }
+      ];
+      
+      legend.selectAll("rect")
+        .data(legendItems)
+        .enter()
+        .append("rect")
+        .attr("x", (d, i) => i * 100)
+        .attr("width", 15)
+        .attr("height", 15)
+        .attr("fill", d => d.color);
+      
+      legend.selectAll("text")
+        .data(legendItems)
+        .enter()
+        .append("text")
+        .attr("x", (d, i) => i * 100 + 20)
+        .attr("y", 10)
+        .text(d => d.name.split(" ")[1])
+        .style("font-size", "10px");
+    }
+
+    // 6. Membuat matriks risiko
+    function createRiskMatrix() {
+      const margin = {top: 50, right: 30, bottom: 50, left: 60};
+      const width = document.getElementById("matrix-chart").clientWidth - margin.left - margin.right;
+      const height = 300;
+      
+      // Membuat SVG
+      const svg = d3.select("#matrix-chart")
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+      
+      // Skala untuk likelihood (y-axis in matrix)
+      const y = d3.scaleLinear()
+        .domain([1, 5])
+        .range([height, 0]);
+      
+      // Skala untuk impact (x-axis in matrix)
+      const x = d3.scaleLinear()
+        .domain([1, 5])
+        .range([0, width]);
+      
+      // Membuat grid untuk matriks
+      const gridSize = Math.min(width, height) / 5;
+      
+      // Background grid cells dengan warna yang berbeda berdasarkan tingkat risiko
+      for (let i = 1; i <= 5; i++) {
+        for (let j = 1; j <= 5; j++) {
+          const score = i * j;
+          let color;
+          
+          if (score >= 10) color = "#e74c3c"; // Ekstrem
+          else if (score >= 6) color = "#ff7675"; // Tinggi
+          else if (score >= 3) color = "#fdcb6e"; // Sedang
+          else color = "#55efc4"; // Rendah
+          
+          svg.append("rect")
+            .attr("class", "matrix-cell")
+            .attr("x", x(j - 1))
+            .attr("y", y(i))
+            .attr("width", gridSize)
+            .attr("height", gridSize)
+            .attr("fill", color)
+            .attr("fill-opacity", 0.6);
+        }
+      }
+      
+      // Circles untuk risiko
+      svg.selectAll(".risk-point")
+        .data(riskData)
+        .enter()
+        .append("circle")
+        .attr("class", "risk-point")
+        .attr("cx", d => x(d.impact - 0.5))
+        .attr("cy", d => y(d.likelihood - 0.5))
+        .attr("r", 8)
+        .attr("fill", "white")
+        .attr("stroke", "#333")
+        .attr("stroke-width", 2)
+        .on("mouseover", function(event, d) {
+          d3.select(this)
+            .attr("r", 10)
+            .attr("stroke", "#ff7f0e");
+          
+          d3.select("#tooltip")
+            .style("display", "block")
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 25) + "px")
+            .html(`<strong>${d.code} - ${d.risk}</strong><br>Kemungkinan: ${d.likelihood}<br>Dampak: ${d.impact}<br>Skor: ${d.score}<br>Kategori: ${d.label}`);
+        })
+        .on("mouseout", function() {
+          d3.select(this)
+            .attr("r", 8)
+            .attr("stroke", "#333");
+          
+          d3.select("#tooltip").style("display", "none");
+        });
+      
+      // Text labels untuk risiko
+      svg.selectAll(".risk-label")
+        .data(riskData)
+        .enter()
+        .append("text")
+        .attr("class", "risk-label")
+        .attr("x", d => x(d.impact - 0.5))
+        .attr("y", d => y(d.likelihood - 0.5) + 3)
+        .attr("text-anchor", "middle")
+        .attr("font-size", "9px")
+        .attr("font-weight", "bold")
+        .text(d => d.code);
+      
+      // X axis
+      svg.append("g")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(x).ticks(5).tickFormat(d => Math.round(d)));
+      
+      // Y axis
+      svg.append("g")
+        .call(d3.axisLeft(y).ticks(5).tickFormat(d => Math.round(d)));
+      
+      // X axis label
+      svg.append("text")
+        .attr("class", "axis-label")
+        .attr("x", width / 2)
+        .attr("y", height + 35)
+        .attr("text-anchor", "middle")
+        .text("Dampak (Impact)");
+      
+      // Y axis label
+      svg.append("text")
+        .attr("class", "axis-label")
+        .attr("transform", "rotate(-90)")
+        .attr("y", -40)
+        .attr("x", -height / 2)
+        .attr("text-anchor", "middle")
+        .text("Kemungkinan (Likelihood)");
+      
+      // Title
+      svg.append("text")
+        .attr("class", "chart-title")
+        .attr("x", width / 2)
+        .attr("y", -20)
+        .attr("text-anchor", "middle")
+        .text("Matriks Risiko");
+      
+      // Legend
+      const legend = svg.append("g")
+        .attr("transform", `translate(${width - 150}, 10)`);
+      
+      const legendItems = [
+        { label: "Ekstrem", color: "#e74c3c" },
+        { label: "Tinggi", color: "#ff7675" },
+        { label: "Sedang", color: "#fdcb6e" },
+        { label: "Rendah", color: "#55efc4" }
+      ];
+      
+      legend.selectAll("rect")
+        .data(legendItems)
+        .enter()
+        .append("rect")
+        .attr("x", 0)
+        .attr("y", (d, i) => i * 20)
+        .attr("width", 15)
+        .attr("height", 15)
+        .attr("fill", d => d.color);
+      
+      legend.selectAll("text")
+        .data(legendItems)
+        .enter()
+        .append("text")
+        .attr("x", 20)
+        .attr("y", (d, i) => i * 20 + 12)
+        .text(d => d.label)
+        .style("font-size", "10px");
+    }
+
+    // Fungsi inisialisasi
+    function init() {
+      createTable();
+      createCategoryGrouping();
+      createLikelihoodChart();
+      createImpactChart();
+      createScoreChart();
+      createRiskMatrix();
+      
+      // Setup scrollama
+      const scroller = scrollama();
+      
+      scroller
+        .setup({
+          step: ".section",
+          offset: 0.5,
+          debug: false
+        })
+        .onStepEnter(response => {
+          const { element } = response;
+          
+          // Hapus class active dari semua bagian
+          d3.selectAll(".section").classed("active", false);
+          
+          // Tambahkan class active ke bagian yang sedang dilihat
+          d3.select(element).classed("active", true);
+        });
+      
+      // Setup resize event
+      window.addEventListener("resize", scroller.resize);
+    }
+
+    // Panggil fungsi inisialisasi saat halaman dimuat
+    window.addEventListener("load", init);
+  </script>
+</body>
+</html>
